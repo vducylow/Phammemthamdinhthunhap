@@ -3,7 +3,7 @@ import streamlit as st
 # 1. CẤU HÌNH TRANG RỘNG RÃI & GỌN GÀNG
 st.set_page_config(page_title="Thẩm định vay vốn - DTI", page_icon="🏦", layout="wide")
 
-st.title("🏦 Bảng Thẩm Định Hệ Số Nợ Trên Thu Nhập (DTI)")
+st.title("🏦 Phầm mềm thẩm định thu nhập khách hàng_Phạm Văn Quốc Việt")
 st.caption("Điều chỉnh các thông số ở thanh bên trái (Sidebar) để xem kết quả phân tích tự động.")
 
 # --- 2. THANH BÊN TRÁI (SIDEBAR): NHẬP THÔNG SỐ ---
