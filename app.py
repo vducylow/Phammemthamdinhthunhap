@@ -1,97 +1,120 @@
 import streamlit as st
 
-# Cấu hình trang
-st.set_page_config(page_title="Tính chỉ số DTI", page_icon="🏦", layout="centered")
+# 1. CẤU HÌNH TRANG RỘNG RÃI & GỌN GÀNG
+st.set_page_config(page_title="Thẩm định vay vốn - DTI", page_icon="🏦", layout="wide")
 
-st.title("🏦 Công cụ tính Hệ số Nợ trên Thu nhập (DTI)")
-st.write("Nhập các thông số bên dưới để kiểm tra khả năng vay vốn của khách hàng.")
+st.title("🏦 Bảng Thẩm Định Hệ Số Nợ Trên Thu Nhập (DTI)")
+st.caption("Điều chỉnh các thông số ở thanh bên trái (Sidebar) để xem kết quả phân tích tự động.")
 
-# --- PHẦN 1: NHẬP THÔNG SỐ ĐẦU VÀO ---
-st.subheader("1. Thông số đầu vào")
+# --- 2. THANH BÊN TRÁI (SIDEBAR): NHẬP THÔNG SỐ ---
+with st.sidebar:
+    st.header("⚙️ Thông số đầu vào")
+    
+    st.subheader("1. Khoản vay mới")
+    vay_moi = st.number_input("Số tiền vay (triệu đ)", min_value=0.0, value=800.0, step=50.0)
+    thoi_han_nam = st.slider("Thời hạn vay (năm)", min_value=1, max_value=30, value=5)
+    lai_suat_nam = st.number_input("Lãi suất (%/năm)", min_value=0.0, value=12.0, step=0.5)
+    phuong_thuc = st.radio(
+        "Cách tính trả nợ:",
+        ["Dư nợ giảm dần (Tháng đầu)", "Trả góp đều (PMT)"]
+    )
+    
+    st.divider()
+    st.subheader("2. Khách hàng & Gia đình")
+    thu_nhap = st.number_input("Tổng thu nhập/tháng (triệu đ)", min_value=1.0, value=45.0, step=1.0)
+    no_cu = st.number_input("Trả nợ cũ/tháng (triệu đ)", min_value=0.0, value=10.0, step=1.0)
+    so_nguoi = st.number_input("Số người trong gia đình", min_value=1, value=3, step=1)
+    phi_1_nguoi = st.number_input("Sinh hoạt phí/người (triệu đ)", min_value=0.0, value=4.0, step=0.5)
 
-col1, col2 = st.columns(2)
+    st.divider()
+    st.subheader("3. Tiêu chuẩn Ngân hàng")
+    nguong_dti = st.slider("Trần DTI cho phép (%)", min_value=30, max_value=90, value=70, step=5)
+
+# --- 3. XỬ LÝ TÍNH TOÁN ---
+thang = thoi_han_nam * 12
+lai_thang = (lai_suat_nam / 100) / 12
+
+if phuong_thuc == "Dư nợ giảm dần (Tháng đầu)":
+    goc = vay_moi / thang
+    lai = vay_moi * lai_thang
+    tra_vay_moi = goc + lai
+else:
+    goc = 0
+    lai = 0
+    tra_vay_moi = vay_moi * (lai_thang * (1 + lai_thang)**thang) / ((1 + lai_thang)**thang - 1) if lai_thang > 0 else vay_moi / thang
+
+sinh_hoat_phi = so_nguoi * phi_1_nguoi
+tong_no = no_cu + tra_vay_moi
+thu_nhap_con_lai = thu_nhap - sinh_hoat_phi
+so_du_cuoi_cung = thu_nhap_con_lai - tong_no
+
+dti_tong = (tong_no / thu_nhap) * 100
+dti_rong = (tong_no / thu_nhap_con_lai) * 100 if thu_nhap_con_lai > 0 else 100.0
+
+# --- 4. MÀN HÌNH CHÍNH: HIỂN THỊ KẾT QUẢ DỄ NHÌN ---
+
+# 4.1. Khối Kết luận nổi bật ngay đầu trang
+if so_du_cuoi_cung < 0:
+    st.error(f"### ❌ TỪ CHỐI CHO VAY\n**Lý do:** Khách hàng bị âm dòng tiền (**{so_du_cuoi_cung:,.2f} triệu/tháng**). Thu nhập sau sinh hoạt không đủ trả nợ.")
+elif dti_tong <= nguong_dti:
+    st.success(f"### ✅ ĐỦ ĐIỀU KIỆN CHO VAY\n**Đánh giá:** Hệ số DTI đạt **{dti_tong:.1f}%** (nằm trong ngưỡng an toàn $\le$ {nguong_dti}%). Khách hàng vẫn dư **{so_du_cuoi_cung:,.2f} triệu/tháng** sau khi trả mọi chi phí.")
+else:
+    st.warning(f"### ⚠️ CẦN XEM XÉT LẠI (VƯỢT TRẦN DTI)\n**Đánh giá:** Khách hàng vẫn dư **{so_du_cuoi_cung:,.2f} triệu/tháng**, nhưng DTI hiện tại là **{dti_tong:.1f}%** (vượt quy định {nguong_dti}% của ngân hàng).")
+
+st.write("") # Tạo khoảng trống
+
+# 4.2. Các thẻ chỉ số quan trọng (Đặt trong khung viền)
+st.subheader("📊 Tóm tắt dòng tiền hàng tháng")
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown("**Thông tin khoản vay mới**")
-    vay_moi = st.number_input("Số tiền vay (triệu đồng)", min_value=0.0, value=800.0, step=10.0)
-    thoi_han_nam = st.number_input("Thời hạn vay (năm)", min_value=1, value=5, step=1)
-    lai_suat_nam = st.number_input("Lãi suất (%/năm)", min_value=0.0, value=12.0, step=0.5)
-    phuong_thuc = st.selectbox(
-        "Phương thức trả nợ",
-        ["Dư nợ giảm dần (Xét tháng đầu cao nhất)", "Trả góp đều hàng tháng (Niên kim cố định - PMT)"]
-    )
-
+    with st.container(border=True):
+        st.metric("1. Tổng thu nhập", f"{thu_nhap:,.1f} trđ")
 with col2:
-    st.markdown("**Tài chính & Gia đình khách hàng**")
-    thu_nhap = st.number_input("Thu nhập hàng tháng (triệu đồng)", min_value=1.0, value=45.0, step=1.0)
-    no_cu_thang = st.number_input("Trả nợ khoản vay cũ/tháng (triệu đồng)", min_value=0.0, value=10.0, step=1.0)
-    so_nguoi = st.number_input("Tổng số người trong gia đình", min_value=1, value=3, step=1, help="Bao gồm khách hàng và người phụ thuộc (VD: Khách hàng + 1 vợ + 1 con = 3)")
-    chi_phi_1_nguoi = st.number_input("Chi phí sinh hoạt / người / tháng (triệu đồng)", min_value=0.0, value=4.0, step=0.5)
+    with st.container(border=True):
+        st.metric("2. Sinh hoạt phí", f"{sinh_hoat_phi:,.1f} trđ", f"{so_nguoi} người", delta_color="off")
+with col3:
+    with st.container(border=True):
+        st.metric("3. Tổng nợ phải trả", f"{tong_no:,.2f} trđ", f"Vay mới: {tra_vay_moi:,.2f} trđ", delta_color="off")
+with col4:
+    with st.container(border=True):
+        st.metric("4. Tiền dư cuối tháng", f"{so_du_cuoi_cung:,.2f} trđ", "An toàn" if so_du_cuoi_cung >= 0 else "Thiếu hụt", delta_color="normal" if so_du_cuoi_cung >= 0 else "inverse")
 
-# Tùy chỉnh ngưỡng phê duyệt của ngân hàng
-st.markdown("**Tiêu chuẩn xét duyệt của Ngân hàng**")
-nguong_dti_cho_phep = st.slider("Ngưỡng DTI tối đa cho phép (%)", min_value=30, max_value=90, value=70, step=5)
+st.write("")
 
-# --- PHẦN 2: XỬ LÝ TÍNH TOÁN ---
-thoi_han_thang = thoi_han_nam * 12
-lai_suat_thang = (lai_suat_nam / 100) / 12
+# 4.3. Thanh đo lường DTI & Bảng chi tiết (Chia 2 cột)
+left_col, right_col = st.columns([1.2, 1])
 
-# Tính tiền trả khoản vay mới hàng tháng
-if phuong_thuc == "Dư nợ giảm dần (Xét tháng đầu cao nhất)":
-    goc_hang_thang = vay_moi / thoi_han_thang
-    lai_thang_dau = vay_moi * lai_suat_thang
-    tra_vay_moi_thang = goc_hang_thang + lai_thang_dau
-else:
-    # Công thức PMT
-    if lai_suat_thang > 0:
-        tra_vay_moi_thang = vay_moi * (lai_suat_thang * (1 + lai_suat_thang)**thoi_han_thang) / ((1 + lai_suat_thang)**thoi_han_thang - 1)
-    else:
-        tra_vay_moi_thang = vay_moi / thoi_han_thang
+with left_col:
+    with st.container(border=True):
+        st.markdown("#### 🎯 Đo lường Hệ số DTI")
+        
+        # Thanh tiến trình DTI trên tổng thu nhập
+        st.write(f"**DTI trên Tổng thu nhập:** `{dti_tong:.2f}%` *(Ngưỡng cho phép: {nguong_dti}%)*")
+        st.progress(min(int(dti_tong), 100))
+        
+        st.write("")
+        
+        # Thanh tiến trình DTI trên thu nhập sau sinh hoạt
+        st.write(f"**DTI trên Thu nhập sau sinh hoạt:** `{dti_rong:.2f}%` *(Tỷ lệ nợ / Tiền còn lại)*")
+        st.progress(min(int(dti_rong), 100))
 
-# Tính toán tổng hợp
-chi_phi_sinh_hoat = so_nguoi * chi_phi_1_nguoi
-tong_tra_no = no_cu_thang + tra_vay_moi_thang
-thu_nhap_con_lai = thu_nhap - chi_phi_sinh_hoat
-
-# Tính chỉ số DTI (%)
-dti_tong_thu_nhap = (tong_tra_no / thu_nhap) * 100
-dti_thu_nhap_rong = (tong_tra_no / thu_nhap_con_lai) * 100 if thu_nhap_con_lai > 0 else 999.99
-
-# --- PHẦN 3: HIỂN THỊ KẾT QUẢ ---
-st.divider()
-st.subheader("2. Kết quả tính toán")
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Trả vay mới/tháng", f"{tra_vay_moi_thang:,.2f} trđ")
-m2.metric("Tổng nợ phải trả/tháng", f"{tong_tra_no:,.2f} trđ")
-m3.metric("Thu nhập sau sinh hoạt", f"{thu_nhap_con_lai:,.2f} trđ", delta=f"-{chi_phi_sinh_hoat:,.1f} trđ sinh hoạt", delta_color="off")
-
-c1, c2 = st.columns(2)
-c1.info(f"📊 **DTI (Trên tổng thu nhập):** `{dti_tong_thu_nhap:.2f}%`\n\n*(Công thức: Tổng nợ / Tổng thu nhập)*")
-c2.info(f"📉 **DTI (Trên thu nhập ròng):** `{dti_thu_nhap_rong:.2f}%`\n\n*(Công thức: Tổng nợ / Thu nhập sau sinh hoạt)*")
-
-# --- PHẦN 4: ĐƯA RA KẾT LUẬN ---
-st.subheader("3. Kết luận xét duyệt")
-
-du_tien_sinh_hoat = tong_tra_no <= thu_nhap_con_lai
-dat_chuan_dti = dti_tong_thu_nhap <= nguong_dti_cho_phep
-
-if not du_tien_sinh_hoat:
-    st.error(
-        f"❌ **TỪ CHỐI CHO VAY**\n\n"
-        f"**Lý do:** Tổng nghĩa vụ trả nợ hàng tháng (**{tong_tra_no:.2f} triệu**) vượt quá thu nhập còn lại sau khi trừ chi phí sinh hoạt (**{thu_nhap_con_lai:.2f} triệu**). Khách hàng mất khả năng thanh toán."
-    )
-elif dat_chuan_dti:
-    st.success(
-        f"✅ **ĐỒNG Ý CHO VAY**\n\n"
-        f"**Lý do:**\n"
-        f"- Thu nhập sau sinh hoạt (**{thu_nhap_con_lai:.2f} triệu**) đủ để chi trả tổng nợ hàng tháng (**{tong_tra_no:.2f} triệu**), số dư còn lại là **{(thu_nhap_con_lai - tong_tra_no):.2f} triệu/tháng**.\n"
-        f"- Hệ số DTI (**{dti_tong_thu_nhap:.2f}%**) nằm trong ngưỡng an toàn cho phép của ngân hàng ($\le$ **{nguong_dti_cho_phep}%**)."
-    )
-else:
-    st.warning(
-        f"⚠️ **CÂN NHẮC / TỪ CHỐI THEO QUY ĐỊNH DTI**\n\n"
-        f"**Chi tiết:**\n"
-        f"- Về dòng tiền: Khách hàng vẫn đủ tiền trả nợ sau khi trừ sinh hoạt phí (dư **{(thu_nhap_con_lai - tong_tra_no):.2f} triệu/tháng**).\n"
-        f"- Về quy định: Hệ số DTI hiện tại là **{dti_tong_thu_nhap:.2f}%**, vượt quá ngưỡng cài đặt là **{nguong_dti_cho_phep}%**. Cần kéo dài thời gian vay hoặc giảm số tiền vay."
-    )
+with right_col:
+    with st.container(border=True):
+        st.markdown("#### 🧾 Chi tiết nghĩa vụ nợ/tháng")
+        st.table({
+            "Khoản mục": [
+                "Trả nợ vay cũ",
+                "Gốc vay mới",
+                "Lãi vay mới (tháng đầu)",
+                "Tổng trả vay mới",
+                "TỔNG NGHĨA VỤ NỢ"
+            ],
+            "Số tiền (Triệu đồng)": [
+                f"{no_cu:,.2f}",
+                f"{goc:,.2f}" if phuong_thuc == "Dư nợ giảm dần (Tháng đầu)" else "Tính gộp (PMT)",
+                f"{lai:,.2f}" if phuong_thuc == "Dư nợ giảm dần (Tháng đầu)" else "Tính gộp (PMT)",
+                f"{tra_vay_moi:,.2f}",
+                f"{tong_no:,.2f}"
+            ]
+        })
