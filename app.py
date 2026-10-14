@@ -10,19 +10,18 @@ st.set_page_config(page_title="Thẩm định Tín dụng & Lịch trả nợ", 
 # --- 2. CSS TƯƠNG THÍCH HOÀN HẢO VỚI CẢ DARK MODE & LIGHT MODE ---
 st.markdown("""
 <style>
-    /* Đẩy khoảng cách trên cùng để không bị thanh header của Streamlit che mất chữ */
     .block-container {
         padding-top: 2.5rem !important;
         padding-bottom: 3rem !important;
     }
 
-    /* Tiêu đề chính Gradient nổi bật trên mọi nền */
+    /* Tiêu đề chính Gradient */
     .main-header {
         background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
         color: #ffffff;
         padding: 22px 28px;
         border-radius: 14px;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
         border: 1px solid rgba(255, 255, 255, 0.15);
     }
@@ -39,10 +38,11 @@ st.markdown("""
         margin: 0 !important;
     }
 
-    /* Banner Kết luận thẩm định (Dùng nền rgba trong suốt để hợp Dark Mode) */
+    /* Banner Kết luận thẩm định */
     .status-banner {
         padding: 18px 24px;
         border-radius: 12px;
+        margin-top: 10px;
         margin-bottom: 22px;
     }
     .status-banner h3 {
@@ -66,7 +66,7 @@ st.markdown("""
     .banner-danger  { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 7px solid #ef4444; }
     .banner-danger h3 { color: #f87171 !important; }
 
-    /* Thẻ KPI (Tự động ăn theo màu nền Dark/Light của Streamlit) */
+    /* Thẻ KPI */
     .kpi-card {
         padding: 18px 20px;
         border-radius: 12px;
@@ -124,7 +124,7 @@ st.markdown("""
         line-height: 1.4;
     }
 
-    /* Tiêu đề từng phần không bị cắt chữ */
+    /* Tiêu đề từng phần */
     .section-title {
         font-size: 20px;
         font-weight: 700;
@@ -136,7 +136,7 @@ st.markdown("""
 
     /* Cỡ chữ của các Tab */
     button[data-baseweb="tab"] div p {
-        font-size: 16px !important;
+        font-size: 16.5px !important;
         font-weight: 700 !important;
     }
 </style>
@@ -146,7 +146,7 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
     <h1>🏦 Hệ Thống Thẩm Định Tín Dụng & Lập Kế Hoạch Trả Nợ</h1>
-    <p>Phân tích chỉ số DTI, lập lịch trả nợ đa giai đoạn và mô phỏng tái cấu trúc khoản vay trực quan</p>
+    <p>Phân tích chỉ số DTI, đề xuất giải pháp tái cấu trúc khoản vay và lập lịch trả nợ đa giai đoạn</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -218,6 +218,17 @@ def lap_bang_tra_no(so_tien_vay, thoi_han_nam, ls_uu_dai, so_thang_ud, ls_huy_do
         
     return pd.DataFrame(danh_sach_ky)
 
+# Hàm định dạng màu bảng Pandas dùng chung cho cả 2 Tab
+def style_dti(val):
+    if val > nguong_dti:
+        return 'background-color: rgba(239, 68, 68, 0.22); color: #f87171; font-weight: bold;'
+    return 'background-color: rgba(16, 185, 129, 0.22); color: #34d399; font-weight: bold;'
+
+def style_laisuat(val):
+    if val == f"{ls_uu_dai:.1f}%":
+        return 'color: #34d399; font-weight: bold;'
+    return 'color: #fbbf24; font-weight: bold;'
+
 
 # ==============================================================================
 # 3. THANH BÊN TRÁI (SIDEBAR)
@@ -259,7 +270,7 @@ with st.sidebar:
 
 
 # ==============================================================================
-# 4. XỬ LÝ TÍNH TOÁN TRUNG TÂM
+# 4. KHỞI TẠO DỮ LIỆU KẾ HOẠCH TRẢ NỢ GỐC
 # ==============================================================================
 df_ke_hoach = lap_bang_tra_no(
     vay_moi, thoi_han_nam, ls_uu_dai, so_thang_ud, ls_huy_dong, bien_do,
@@ -270,63 +281,67 @@ tra_ky_1 = df_ke_hoach.loc[0, "Tổng trả vay mới"]
 tra_ky_max = df_ke_hoach["Tổng trả vay mới"].max()
 ten_ky_max = df_ke_hoach.loc[df_ke_hoach["Tổng trả vay mới"].idxmax(), "Kỳ"]
 
-loai_xet_dti = st.radio(
-    "🔍 **Chọn kỳ cơ sở để thẩm định DTI:**",
-    [f"Kỳ áp lực cao nhất khi thả nổi ({ten_ky_max}: {tra_ky_max:,.2f} trđ)", 
-     f"Kỳ đầu tiên (Kỳ 1: {tra_ky_1:,.2f} trđ)"],
-    horizontal=True
-)
-
-dang_xet_ky_1 = "Kỳ 1" in loai_xet_dti
-tra_vay_moi_xet = tra_ky_1 if dang_xet_ky_1 else tra_ky_max
-ls_xet_nam = ls_uu_dai if dang_xet_ky_1 else (ls_huy_dong + bien_do)
-du_no_xet = vay_moi if dang_xet_ky_1 else vay_moi - (vay_moi / (thoi_han_nam * 12)) * min(so_thang_ud, thoi_han_nam * 12 - 1)
-
-sinh_hoat_phi = so_nguoi * phi_1_nguoi
-thu_nhap_con_lai = thu_nhap - sinh_hoat_phi
-tong_no_xet = no_cu + tra_vay_moi_xet
-so_du_cuoi = thu_nhap_con_lai - tong_no_xet
-dti_tong = (tong_no_xet / thu_nhap) * 100
-dti_rong = (tong_no_xet / thu_nhap_con_lai) * 100 if thu_nhap_con_lai > 0 else 100.0
-
-# --- BANNER KẾT LUẬN ---
-if so_du_cuoi < 0:
-    st.markdown(f"""
-    <div class="status-banner banner-danger">
-        <h3>❌ TỪ CHỐI CHO VAY — Khách hàng bị âm dòng tiền ({so_du_cuoi:,.2f} triệu/tháng)</h3>
-        <p>Thu nhập sau sinh hoạt (<b>{thu_nhap_con_lai:,.2f} triệu</b>) không đủ để thanh toán tổng nghĩa vụ nợ hàng tháng (<b>{tong_no_xet:,.2f} triệu</b>). Vui lòng mở <b>Tab 3</b> bên dưới để tái cấu trúc khoản vay!</p>
-    </div>
-    """, unsafe_allow_html=True)
-elif dti_tong <= nguong_dti:
-    st.markdown(f"""
-    <div class="status-banner banner-success">
-        <h3>✅ ĐỦ ĐIỀU KIỆN PHÊ DUYỆT — Hệ số DTI đạt {dti_tong:.2f}% (An toàn ≤ {nguong_dti}%)</h3>
-        <p>Khách hàng đảm bảo tốt khả năng thanh toán nợ và vẫn còn dư <b>{so_du_cuoi:,.2f} triệu/tháng</b> sau khi đã trừ toàn bộ chi phí sinh hoạt gia đình.</p>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown(f"""
-    <div class="status-banner banner-warning">
-        <h3>⚠️ CẢNH BÁO VƯỢT TRẦN DTI — DTI hiện tại: {dti_tong:.2f}% (Vượt ngưỡng {nguong_dti}%)</h3>
-        <p>Khách hàng vẫn dư <b>{so_du_cuoi:,.2f} triệu/tháng</b> sau sinh hoạt phí, nhưng tỷ lệ nợ trên thu nhập vượt quy định của Ngân hàng. Hãy chuyển sang <b>Tab 3</b> để xem các giải pháp hạ DTI!</p>
-    </div>
-    """, unsafe_allow_html=True)
-
 
 # ==============================================================================
-# 5. BA TAB CHỨC NĂNG (ĐÃ SỬA MÀU DARK MODE)
+# 5. CHIA GIAO DIỆN THÀNH 2 TAB GỌN GÀNG
 # ==============================================================================
-tab1, tab2, tab3 = st.tabs([
-    "📊 1. Tổng quan Thẩm định DTI", 
-    f"📅 2. Bảng Kế hoạch trả nợ ({so_ky_xem} kỳ đầu)", 
-    "🛠️ 3. Giải pháp & Tùy chỉnh giảm DTI"
+tab1, tab2 = st.tabs([
+    "📊 1. Tổng quan Thẩm định & Giải pháp Tùy chỉnh DTI", 
+    f"📅 2. Bảng Kế hoạch trả nợ chi tiết ({so_ky_xem} kỳ đầu)"
 ])
 
-# --- TAB 1: TỔNG QUAN THẨM ĐỊNH DTI ---
+# ==============================================================================
+# TAB 1: TỔNG QUAN THẨM ĐỊNH + CHỌN KỲ CƠ SỞ + GIẢI PHÁP & TÙY CHỈNH DTI
+# ==============================================================================
 with tab1:
     st.write("")
-    m1, m2, m3, m4 = st.columns(4)
     
+    # 1.1. ĐƯA PHẦN CHỌN KỲ CƠ SỞ VÀO TRONG TAB TỔNG QUAN
+    with st.container(border=True):
+        loai_xet_dti = st.radio(
+            "🔍 **Chọn kỳ cơ sở để thẩm định DTI:**",
+            [f"Kỳ áp lực trả nợ cao nhất khi thả nổi lãi suất ({ten_ky_max}: {tra_ky_max:,.2f} trđ/tháng)", 
+             f"Kỳ đầu tiên ngay sau giải ngân (Kỳ 1: {tra_ky_1:,.2f} trđ/tháng)"],
+            horizontal=True
+        )
+
+    dang_xet_ky_1 = "Kỳ 1" in loai_xet_dti
+    tra_vay_moi_xet = tra_ky_1 if dang_xet_ky_1 else tra_ky_max
+    ls_xet_nam = ls_uu_dai if dang_xet_ky_1 else (ls_huy_dong + bien_do)
+    du_no_xet = vay_moi if dang_xet_ky_1 else vay_moi - (vay_moi / (thoi_han_nam * 12)) * min(so_thang_ud, thoi_han_nam * 12 - 1)
+
+    sinh_hoat_phi = so_nguoi * phi_1_nguoi
+    thu_nhap_con_lai = thu_nhap - sinh_hoat_phi
+    tong_no_xet = no_cu + tra_vay_moi_xet
+    so_du_cuoi = thu_nhap_con_lai - tong_no_xet
+    dti_tong = (tong_no_xet / thu_nhap) * 100
+    dti_rong = (tong_no_xet / thu_nhap_con_lai) * 100 if thu_nhap_con_lai > 0 else 100.0
+
+    # 1.2. BANNER KẾT LUẬN PHÊ DUYỆT
+    if so_du_cuoi < 0:
+        st.markdown(f"""
+        <div class="status-banner banner-danger">
+            <h3>❌ TỪ CHỐI CHO VAY — Khách hàng bị âm dòng tiền ({so_du_cuoi:,.2f} triệu/tháng)</h3>
+            <p>Thu nhập sau sinh hoạt (<b>{thu_nhap_con_lai:,.2f} triệu</b>) không đủ để thanh toán tổng nghĩa vụ nợ hàng tháng (<b>{tong_no_xet:,.2f} triệu</b>). Hãy kéo xuống mục <b>Giải pháp & Mô phỏng Tùy chỉnh</b> ngay bên dưới để tái cấu trúc khoản vay!</p>
+        </div>
+        """, unsafe_allow_html=True)
+    elif dti_tong <= nguong_dti:
+        st.markdown(f"""
+        <div class="status-banner banner-success">
+            <h3>✅ ĐỦ ĐIỀU KIỆN PHÊ DUYỆT — Hệ số DTI đạt {dti_tong:.2f}% (An toàn ≤ {nguong_dti}%)</h3>
+            <p>Khách hàng đảm bảo tốt khả năng thanh toán nợ và vẫn còn dư <b>{so_du_cuoi:,.2f} triệu/tháng</b> sau khi đã trừ toàn bộ chi phí sinh hoạt gia đình.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="status-banner banner-warning">
+            <h3>⚠️ CẢNH BÁO VƯỢT TRẦN DTI — DTI hiện tại: {dti_tong:.2f}% (Vượt ngưỡng {nguong_dti}%)</h3>
+            <p>Khách hàng vẫn dư <b>{so_du_cuoi:,.2f} triệu/tháng</b> sau sinh hoạt phí, nhưng tỷ lệ nợ trên thu nhập vượt quy định của Ngân hàng. Xem ngay <b>4 Giải pháp & Bảng Tùy Chỉnh</b> phía dưới!</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 1.3. BỐN THẺ CHỈ SỐ KPI DÒNG TIỀN
+    m1, m2, m3, m4 = st.columns(4)
     with m1:
         st.markdown(f"""
         <div class="kpi-card" style="border-top: 4px solid #3b82f6;">
@@ -369,8 +384,9 @@ with tab1:
         """, unsafe_allow_html=True)
 
     st.write("")
-    col_t1, col_t2 = st.columns([1.2, 1])
     
+    # 1.4. THƯỚC ĐO DTI & BẢNG BÓC TÁCH CƠ CẤU CHI TIÊU
+    col_t1, col_t2 = st.columns([1.2, 1])
     with col_t1:
         with st.container(border=True):
             st.markdown("<div class='section-title'>🎯 Thước đo Hệ số Nợ trên Thu nhập (DTI)</div>", unsafe_allow_html=True)
@@ -408,56 +424,10 @@ with tab1:
                 "Tỷ trọng / Thu nhập": [f"{(goc_moi_thang/thu_nhap)*100:.1f}%", f"{(lai_ky_xet/thu_nhap)*100:.1f}%", f"{(no_cu/thu_nhap)*100:.1f}%", f"{(sinh_hoat_phi/thu_nhap)*100:.1f}%", f"{(so_du_cuoi/thu_nhap)*100:.1f}%"]
             }), use_container_width=True, hide_index=True)
 
+    st.divider()
 
-# --- TAB 2: BẢNG KẾ HOẠCH TRẢ NỢ (DÙNG MÀU TRONG SUỐT ĐỂ ĐẸP TRÊN NỀN ĐEN) ---
-with tab2:
-    st.write("")
-    with st.container(border=True):
-        st.markdown(f"<div class='section-title'>📋 Bảng Kế hoạch trả nợ {so_ky_xem} kỳ đầu tiên (Giải ngân: {ngay_giai_ngan.strftime('%d/%m/%Y')})</div>", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div style="background:rgba(128,128,128,0.12); padding:12px 18px; border-radius:10px; border:1px solid rgba(128,128,128,0.25); margin-bottom:15px; font-size:15px;">
-            📌 <b>Gốc trả đều mỗi kỳ:</b> <span style="color:#60a5fa; font-weight:800;">{vay_moi/(thoi_han_nam*12):,.2f} triệu</span> &nbsp;|&nbsp; 
-            🟢 <b>Lãi suất {so_thang_ud} kỳ đầu:</b> <span style="color:#34d399; font-weight:800;">{ls_uu_dai}%/năm</span> &nbsp;|&nbsp; 
-            🟠 <b>Lãi suất từ kỳ {so_thang_ud+1}:</b> <span style="color:#fbbf24; font-weight:800;">{ls_huy_dong + bien_do}%/năm</span> ({cach_tinh})
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Hàm tô màu dùng rgba bán trong suốt, hiển thị rõ chữ trên cả nền Đen và Trắng
-        def style_dti(val):
-            if val > nguong_dti:
-                return 'background-color: rgba(239, 68, 68, 0.22); color: #f87171; font-weight: bold;'
-            return 'background-color: rgba(16, 185, 129, 0.22); color: #34d399; font-weight: bold;'
-
-        def style_laisuat(val):
-            if val == f"{ls_uu_dai:.1f}%":
-                return 'color: #34d399; font-weight: bold;'
-            return 'color: #fbbf24; font-weight: bold;'
-
-        styled_df = df_ke_hoach.style.format({
-            "Dư nợ đầu kỳ": "{:,.2f}",
-            "Trả gốc": "{:,.2f}",
-            "Trả lãi": "{:,.2f}",
-            "Tổng trả vay mới": "{:,.2f}",
-            "DTI kỳ này (%)": "{:.2f}%",
-            "Dư nợ cuối kỳ": "{:,.2f}",
-        }).map(style_dti, subset=["DTI kỳ này (%)"])\
-          .map(style_laisuat, subset=["Lãi suất"])\
-          .set_properties(subset=["Tổng trả vay mới"], **{'background-color': 'rgba(59, 130, 246, 0.2)', 'color': '#60a5fa', 'font-weight': 'bold'})
-
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
-        
-        tong_goc = df_ke_hoach["Trả gốc"].sum()
-        tong_lai = df_ke_hoach["Trả lãi"].sum()
-        st.markdown(f"""
-        <div style="background: rgba(59, 130, 246, 0.15); padding: 15px 20px; border-radius: 10px; border-left: 6px solid #3b82f6; margin-top: 10px; font-size: 15.5px;">
-            💡 <b>Tổng kết sau {so_ky_xem} kỳ đầu tiên:</b> Khách hàng đã thanh toán <b>{tong_goc:,.2f} triệu</b> nợ gốc + <b>{tong_lai:,.2f} triệu</b> tiền lãi = <b style="font-size:18px; color:#60a5fa;">{tong_goc + tong_lai:,.2f} triệu đồng</b>.
-        </div>
-        """, unsafe_allow_html=True)
-
-
-# --- TAB 3: GIẢI PHÁP ĐỀ XUẤT & BẢNG TÙY CHỈNH ---
-with tab3:
-    st.markdown("<div class='section-title'>💡 1. Bốn Giải Pháp Độc Lập Giúp Đưa DTI Về Ngưỡng An Toàn</div>", unsafe_allow_html=True)
+    # 1.5. TÍCH HỢP PHẦN ĐỀ XUẤT 4 GIẢI PHÁP ĐỘC LẬP VÀO CHUNG MỤC TỔNG QUAN
+    st.markdown("<div class='section-title'>💡 Đề Xuất 4 Giải Pháp Độc Lập Giúp Đưa DTI Về Ngưỡng An Toàn</div>", unsafe_allow_html=True)
     
     tong_no_muc_tieu = min(thu_nhap * (nguong_dti / 100), thu_nhap_con_lai)
     tra_vay_moi_toi_da = tong_no_muc_tieu - no_cu
@@ -538,11 +508,12 @@ with tab3:
             </div>
             """, unsafe_allow_html=True)
 
+    st.write("")
     st.divider()
 
-    # PHẦN 3B: BẢNG TÙY CHỈNH KẾT HỢP (ĐÃ SỬA LỖI CẮT CHỮ TIÊU ĐỀ & LỖI MÀU TRẮNG CHÓI)
-    st.markdown("<div class='section-title'>🎛️ 2. Bảng Mô Phỏng Tùy Chỉnh & So Sánh Trực Tiếp</div>", unsafe_allow_html=True)
-    st.caption("Kéo chỉnh các thông số dưới đây để kết hợp nhiều giải pháp và xem ngay sự thay đổi giữa Phương án Gốc và Phương án Mới:")
+    # 1.6. TÍCH HỢP BẢNG MÔ PHỎNG TÙY CHỈNH TRỰC TIẾP VÀO CHUNG MỤC TỔNG QUAN
+    st.markdown("<div class='section-title'>🎛️ Bảng Mô Phỏng Tùy Chỉnh & So Sánh Trực Tiếp</div>", unsafe_allow_html=True)
+    st.caption("Kéo chỉnh các thông số dưới đây để kết hợp nhiều giải pháp và xem ngay sự thay đổi giữa Phương án Gốc và Phương án Mới ngay trên trang Tổng quan:")
 
     with st.container(border=True):
         tc1, tc2, tc3, tc4 = st.columns(4)
@@ -578,7 +549,6 @@ with tab3:
             ]
         })
 
-        # Sử dụng rgba trong suốt để cột Phương Án Mới dịu mắt trên nền tối
         def style_comparison(col):
             if col.name == "Phương Án Tùy Chỉnh (Mới)":
                 if dti_moi <= nguong_dti and du_moi >= 0:
@@ -597,3 +567,40 @@ with tab3:
                 }).map(style_dti, subset=["DTI kỳ này (%)"]),
                 use_container_width=True, hide_index=True
             )
+
+
+# ==============================================================================
+# TAB 2: BẢNG KẾ HOẠCH TRẢ NỢ CHI TIẾT
+# ==============================================================================
+with tab2:
+    st.write("")
+    with st.container(border=True):
+        st.markdown(f"<div class='section-title'>📋 Bảng Kế hoạch trả nợ {so_ky_xem} kỳ đầu tiên (Giải ngân: {ngay_giai_ngan.strftime('%d/%m/%Y')})</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background:rgba(128,128,128,0.12); padding:12px 18px; border-radius:10px; border:1px solid rgba(128,128,128,0.25); margin-bottom:15px; font-size:15px;">
+            📌 <b>Gốc trả đều mỗi kỳ:</b> <span style="color:#60a5fa; font-weight:800;">{vay_moi/(thoi_han_nam*12):,.2f} triệu</span> &nbsp;|&nbsp; 
+            🟢 <b>Lãi suất {so_thang_ud} kỳ đầu:</b> <span style="color:#34d399; font-weight:800;">{ls_uu_dai}%/năm</span> &nbsp;|&nbsp; 
+            🟠 <b>Lãi suất từ kỳ {so_thang_ud+1}:</b> <span style="color:#fbbf24; font-weight:800;">{ls_huy_dong + bien_do}%/năm</span> ({cach_tinh})
+        </div>
+        """, unsafe_allow_html=True)
+
+        styled_df = df_ke_hoach.style.format({
+            "Dư nợ đầu kỳ": "{:,.2f}",
+            "Trả gốc": "{:,.2f}",
+            "Trả lãi": "{:,.2f}",
+            "Tổng trả vay mới": "{:,.2f}",
+            "DTI kỳ này (%)": "{:.2f}%",
+            "Dư nợ cuối kỳ": "{:,.2f}",
+        }).map(style_dti, subset=["DTI kỳ này (%)"])\
+          .map(style_laisuat, subset=["Lãi suất"])\
+          .set_properties(subset=["Tổng trả vay mới"], **{'background-color': 'rgba(59, 130, 246, 0.2)', 'color': '#60a5fa', 'font-weight': 'bold'})
+
+        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        
+        tong_goc = df_ke_hoach["Trả gốc"].sum()
+        tong_lai = df_ke_hoach["Trả lãi"].sum()
+        st.markdown(f"""
+        <div style="background: rgba(59, 130, 246, 0.15); padding: 15px 20px; border-radius: 10px; border-left: 6px solid #3b82f6; margin-top: 10px; font-size: 15.5px;">
+            💡 <b>Tổng kết sau {so_ky_xem} kỳ đầu tiên:</b> Khách hàng đã thanh toán <b>{tong_goc:,.2f} triệu</b> nợ gốc + <b>{tong_lai:,.2f} triệu</b> tiền lãi = <b style="font-size:18px; color:#60a5fa;">{tong_goc + tong_lai:,.2f} triệu đồng</b>.
+        </div>
+        """, unsafe_allow_html=True)
